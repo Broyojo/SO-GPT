@@ -1,19 +1,9 @@
 import os
-import random
-import sys
-import time
-from collections import deque
-from pathlib import Path
 
-import numpy as np
 import torch
-import transformers
-from alive_progress import alive_it
 from datasets import load_dataset
-from tokenizers import ByteLevelBPETokenizer
 from transformers import (
     DataCollatorForLanguageModeling,
-    GPT2Config,
     GPT2LMHeadModel,
     GPT2TokenizerFast,
     Trainer,
@@ -26,9 +16,8 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = GPT2TokenizerFast.from_pretrained(
         model_name,
-        bos_token="<|startoftext|>",
-        eos_token="<|endoftext|>",
-        pad_token="<|pad|>",
+        pad_token="<|endoftext|>",
+        padding_side="left",
     )
     model = GPT2LMHeadModel.from_pretrained(model_name).to(device)
     model.resize_token_embeddings(len(tokenizer))
@@ -58,7 +47,7 @@ def main():
     print(dataset)
 
     training_args = TrainingArguments(
-        output_dir="models/model",
+        output_dir="models/cooking",
         overwrite_output_dir=True,
         logging_strategy="steps",
         logging_steps=1,
@@ -83,12 +72,10 @@ def main():
     )
 
     trainer.train()
-    trainer.save_model("models/model")
+    trainer.save_model("models/cooking")
 
     # print(tokenizer.decode(dataset["train"][0]["input_ids"]))
 
-
-# TODO: use model.eval() and torch.no_grad() for best performance
 
 if __name__ == "__main__":
     main()

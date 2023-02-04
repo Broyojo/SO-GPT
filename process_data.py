@@ -14,7 +14,7 @@ from alive_progress import alive_it
 
 def main():
     # extract all posts from data dump
-    posts_path = "data/meta/Posts.xml"
+    posts_path = "data/cooking/Posts.xml"
     tree = ET.parse(posts_path)
     root = tree.getroot()
     posts = {}
@@ -45,7 +45,7 @@ def main():
 
     answer_body = pair[1]["Body"]
 
-    with open("index.html", "w") as f:
+    with open("viewer.html", "w") as f:
         f.write(question_body + "<hr>" + answer_body)
 
     print(f"Question ID: {pair[0]['Id']}")

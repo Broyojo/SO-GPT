@@ -10,9 +10,7 @@ def main():
     for pair in pairs:
         question = pair["question"]
         answer = pair["answer"]
-        texts.append(
-            {"text": f"<|startoftext|>{question}<|answer|>{answer}<|endoftext|>"}
-        )
+        texts.append({"text": f"{question}<|endoftext|>{answer}<|endoftext|>"})
 
     with open("dataset.json", "w") as f:
         json.dump({"data": texts}, f)
