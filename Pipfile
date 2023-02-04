@@ -5,6 +5,10 @@ name = "pypi"
 
 [packages]
 alive-progress = "*"
+transformers = "*"
+tokenizers = "*"
+datasets = "*"
+torch = "*"
 
 [dev-packages]
 black = "*"
