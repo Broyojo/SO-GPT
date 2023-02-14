@@ -14,13 +14,16 @@ from alive_progress import alive_it
 
 def main():
     # extract all posts from data dump
-    posts_path = "data/cooking/Posts.xml"
-    tree = ET.parse(posts_path)
-    root = tree.getroot()
+    posts_path = "data/stackoverflow/Posts.xml"
     posts = {}
-    for post in alive_it(root, title=f"Reading posts from {posts_path}..."):
+
+    for _, post in alive_it(ET.iterparse(posts_path), title=f"Reading posts from {posts_path}..."):
+        if post.tag != "row":
+            continue
         items = dict(post.items())
         posts[items["Id"]] = items
+        if len(posts) == 5_000_000:
+            break
 
     # get all (question, top answer) pairs
     question_answers = {}
@@ -33,7 +36,8 @@ def main():
     question_answer_pairs = []
     for question_id, answers in question_answers.items():
         top_voted_answer = max(answers, key=lambda a: int(a["Score"]))
-        question_answer_pairs.append((posts[question_id], top_voted_answer))
+        if question_id in posts:
+            question_answer_pairs.append((posts[question_id], top_voted_answer))
 
     print(
         f"Loaded {len(question_answer_pairs)} question-answer pairs ({len(question_answer_pairs)*2} posts) out of {len(posts)} total posts"
@@ -54,7 +58,7 @@ def main():
     with open("pairs.json", "w") as f:
         pairs = [
             {"question": q["Body"], "answer": a["Body"]}
-            for (q, a) in question_answer_pairs[:100]
+            for (q, a) in question_answer_pairs
         ]
         json.dump(pairs, f)
 

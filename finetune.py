@@ -41,26 +41,29 @@ def main():
             remove_columns=["text"],
             num_proc=os.cpu_count(),
         )
-        .train_test_split(0.1)
+        .train_test_split(0.01)
     )
 
     print(dataset)
 
+    output_dir = "models/stackoverflow-5mil"
+
     training_args = TrainingArguments(
-        output_dir="models/cooking",
-        overwrite_output_dir=True,
-        logging_strategy="steps",
-        logging_steps=1,
+        output_dir=output_dir,
         num_train_epochs=1,
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
-        fp16=True if device == "cuda" else False,
-        save_steps=10,
+        per_device_train_batch_size=2,
+        per_device_eval_batch_size=8,
         save_total_limit=5,
+        save_steps=5000,
+        eval_steps=5000,
+        logging_steps=50,
+        logging_strategy="steps",
+        evaluation_strategy="steps",
         prediction_loss_only=False,
         remove_unused_columns=False,
-        evaluation_strategy="steps",
-        eval_steps=10,
+        load_best_model_at_end=True,
+        fp16=True if device == "cuda" else False,
+        overwrite_output_dir=True,
     )
 
     trainer = Trainer(
@@ -72,7 +75,7 @@ def main():
     )
 
     trainer.train()
-    trainer.save_model("models/cooking")
+    trainer.save_model(output_dir)
 
     # print(tokenizer.decode(dataset["train"][0]["input_ids"]))
 

@@ -9,10 +9,10 @@ def main():
         pad_token="<|endoftext|>",
         padding_side="left",
     )
-    model = GPT2LMHeadModel.from_pretrained("models/cooking").to(device)
+    model = GPT2LMHeadModel.from_pretrained("models/stackoverflow-5mil/checkpoint-235000").to(device)
 
     with torch.no_grad():
-        prompt = "<p>How do you make scrambled eggs?</p><endoftext>"
+        prompt = """Question:\n<p>How do I train an MNIST model using keras and python?</p>\nAnswer:\n"""
         encoding = tokenizer(
             prompt,
             padding=True,
