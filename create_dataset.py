@@ -1,71 +1,115 @@
 import json
 import xml.etree.ElementTree as ET
 
+import matplotlib.pyplot as plt
 from alive_progress import alive_it
+
+# max questions: https://stackexchange.com/sites?view=list#questions
 
 
 def main():
-    create_dataset("./data/stackoverflow/Posts.xml") # 520,000 ~ 1% of all stack overflow questions and answers (not evenly distributed though)
+    POSTS_PATH = "./data/stackoverflow/Posts.xml"
 
+    pairs = {}
+    # lengths = []
 
-def create_dataset(posts_path, max=1e9):
-    questions = {}
-    answers = {}
-    pairs = []
-    
-    posts = 1
-    for _, post in alive_it(
-        ET.iterparse(posts_path), title=f"Reading posts from {posts_path}...", total=58_000_000 # https://stackexchange.com/sites?view=list#questions
-    ):
-        if posts < max:
-            # skip anything that isn't a row
-            if post.tag != "row":
-                continue
+    # use an iterator to clean things up here
+    rows = filter(
+        lambda r: r.tag == "row",
+        map(
+            lambda t: t[1],
+            alive_it(
+                ET.iterparse(POSTS_PATH),
+                title=f"Reading posts from {POSTS_PATH}...",
+            ),
+        ),
+    )
 
-            # only store some fraction of posts
-            attribs = post.attrib
-            id = attribs["Id"]
-            # body = attribs["Body"]
-            score = int(attribs["Score"])
+    with open("posts.txt", "a") as f:
+        for row in rows:
+            # lengths.append(len(pairs))
+            post_attribs = row.attrib
+            post_id = post_attribs["Id"]
+            post_type = post_attribs["PostTypeId"]
+            post_score = int(post_attribs["Score"])
 
-            match attribs["PostTypeId"]:
+            match post_type:
                 case "1":
-                    questions[id] = {
-                        # "title": attribs["Title"],
-                        # "body": body,
-                        "score": score,
-                    }
+                    # post is a question
+
+                    number_of_answers = int(post_attribs["AnswerCount"])
+
+                    # if question has no answers, then it is useless and will be skipped
+                    if number_of_answers == 0:
+                        continue
+
+                    if post_id not in pairs:
+                        # answer does not exist
+                        pairs[post_id] = {
+                            "question score": post_score,
+                            "number of answers": number_of_answers,
+                        }
+                    else:
+                        # answer was found, but question not found
+                        pairs[post_id]["question score"] = post_score
+                        pairs[post_id]["number of answers"] = number_of_answers
+
+                        # delete entry if all answers have been found
+                        if (
+                            pairs[post_id]["answers seen"]
+                            >= pairs[post_id]["number of answers"]
+                        ):
+                            f.write(
+                                f"{post_id} {post_score} {pairs[post_id]['answer id']}\n"
+                            )
+                            del pairs[post_id]
                 case "2":
-                    answers[id] = {
-                        "parent": attribs["ParentId"],
-                        # "body": body,
-                        "score": score,
-                    }
-            posts += 1
-        else:
-            break
+                    # post is an answer
+                    parent_id = post_attribs["ParentId"]
 
-        
-    pairs = {} # question_id -> { question, answer }
+                    if parent_id not in pairs:
+                        # question does not exist
+                        pairs[parent_id] = {
+                            "answer id": post_id,
+                            "answer score": post_score,
+                            "answers seen": 1,
+                        }
+                    elif "question score" not in pairs[parent_id]:
+                        # question has not been found yet, but there is at least one answer to it
+                        continue
+                    else:
+                        # question exists
+                        if "answer id" not in pairs[parent_id]:
+                            # no answers have been found yet
+                            pairs[parent_id]["answer id"] = post_id
+                            pairs[parent_id]["answer score"] = post_score
+                            pairs[parent_id]["answers seen"] = 1
+                        elif post_score > pairs[parent_id]["answer score"]:
+                            # at least one answer has been found and a comparison must be made
+                            pairs[parent_id]["answer id"] = post_id
+                            pairs[parent_id]["answer score"] = post_score
 
-    for (id, answer) in alive_it(answers.items(), title=f"Creating question-answer pairs..."):
-        if answer["parent"] in questions:
-            if answer["parent"] not in pairs:
-                pairs[answer["parent"]] = {
-                    "question": questions[answer["parent"]],
-                    "answer": answer,
-                }
-            else:
-                if answer["score"] > pairs[answer["parent"]]["answer"]["score"]:
-                    pairs[answer["parent"]]["answer"] = answer
+                        if (
+                            pairs[parent_id]["answers seen"]
+                            >= pairs[parent_id]["number of answers"]
+                        ):
+                            # delete entry if all answers have been found
+                            f.write(
+                                f"{parent_id} {pairs[parent_id]['question score']} {pairs[parent_id]['answer id']}\n"
+                            )
+                            del pairs[parent_id]
+                            continue
 
-    with open("data.txt", "a") as f:
-        for pair in pairs.values():
-            a_score = pair["answer"]["score"]
-            q_score = pair["question"]["score"]
-            parent = pair["answer"]["parent"]
-            f.write(f"{parent} {q_score} {a_score}\n")
-        #json.dump(list(pairs.values()), f)
+                        # increment number of answers seen
+                        pairs[parent_id]["answers seen"] += 1
+    # plt.plot(lengths)
+    # print(f"max len: {max(lengths)}")
+    # print(f"total: {len(lengths)}")
+    # print(
+    #     f"space reduction: {(len(lengths) - max(lengths)) / len(lengths) * 100:.{2}f}%",
+    # )
+    # plt.show()
+
 
 if __name__ == "__main__":
     main()

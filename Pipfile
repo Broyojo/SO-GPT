@@ -10,6 +10,7 @@ tokenizers = "*"
 datasets = "*"
 torch = "*"
 openai = "*"
+matplotlib = "*"
 
 [dev-packages]
 black = "*"
