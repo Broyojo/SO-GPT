@@ -33,6 +33,9 @@ for row in xml file:
                     answer score: score,
                     answers seen: 1,
                 }
+            elif "question score" not in pairs[parent_id]:
+                # question has not been found yet, but there is at least one answer to it
+                continue
             else:
                 # question exists
                 if "answer id" not in pairs[post id]:
@@ -40,7 +43,7 @@ for row in xml file:
                     pairs[parent id][answer id] = post id
                     pairs[parent id][answer score] = post score
                     pairs[parent id][answers seen] = 1
-                else if answer score > pairs[parent id][answer score]:
+                elif answer score > pairs[parent id][answer score]:
                     # at least one answer has been found and a comparison must be made
                     pairs[parent id][answer id] = post id
                     pairs[parent id][answer score] = answer score

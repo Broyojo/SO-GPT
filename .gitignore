@@ -4,3 +4,4 @@ models
 *.html
 old
 create_dataset
+posts.txt
