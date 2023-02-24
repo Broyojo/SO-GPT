@@ -1,13 +1,9 @@
+import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
 
-import matplotlib.pyplot as plt
-
-# import matplotlib.pyplot as plt
 from alive_progress import alive_it
-
-# max questions: https://stackexchange.com/sites?view=list#questions
 
 
 @dataclass
@@ -15,6 +11,8 @@ class Question:
     id: str
     num_answers: int
     score: int
+    title: str
+    body: str
 
 
 @dataclass
@@ -22,13 +20,13 @@ class Answer:
     id: str
     parent_id: str
     score: int
+    body: str
 
 
 @dataclass
 class Pair:
     question: Optional[Question]
     answer: Optional[Answer]
-    num_answers_seen: int
 
 
 def read_posts(posts_path: str, total: int):
@@ -46,95 +44,68 @@ def read_posts(posts_path: str, total: int):
                             id=post.attrib["Id"],
                             num_answers=num_answers,
                             score=int(post.attrib["Score"]),
+                            title=post.attrib["Title"],
+                            body=post.attrib["Body"],
                         )
                 case "2":
                     yield Answer(
                         id=post.attrib["Id"],
                         parent_id=post.attrib["ParentId"],
                         score=int(post.attrib["Score"]),
+                        body=post.attrib["Body"],
                     )
         post.clear()  # very important, otherwise OOM error!!
 
 
 def main():
-    POSTS_PATH = "./data/cooking/Posts.xml"
+    POSTS_PATH = "data/cooking/Posts.xml"
 
-    pairs: dict[str, Pair] = {}
-    y = []
+    # max questions: https://stackexchange.com/sites?view=list#questionss
 
-    with open("posts.txt", "a") as f:
-        for post in read_posts(POSTS_PATH, total=58_000_000):
-            y.append(len(pairs))
-            match post:
-                case Question(id, _, score):
-                    if id not in pairs:
-                        # pair does not exist
-                        pairs[id] = Pair(
-                            question=post,
-                            answer=None,
-                            num_answers_seen=0,
-                        )
-                    else:
-                        # pair has an answer
-                        pairs[id].question = post
-
-                        if pairs[id].num_answers_seen >= pairs[id].question.num_answers:  # type: ignore
-                            f.write(f"{id} {score} {pairs[id].answer.id}\n")  # type: ignore
-                            del pairs[id]
-                case Answer(id, parent_id, score):
-                    if parent_id not in pairs:
-                        # pair does not exist
-                        pairs[parent_id] = Pair(
-                            question=None,
-                            answer=post,
-                            num_answers_seen=1,
-                        )
-                    elif pairs[parent_id].question == None:
-                        # pair has an answer but not a question
-                        if score > pairs[parent_id].answer.score:  # type: ignore
-                            pairs[parent_id].answer = post
-                        pairs[parent_id].num_answers_seen += 1
-                    else:
-                        # pair has a question
-                        if pairs[parent_id].answer == None:
-                            # pair has no answer
-                            pairs[parent_id].answer = post
-                            pairs[parent_id].num_answers_seen = 1
-                        elif score > pairs[parent_id].answer.score:  # type: ignore
-                            # pair has both
-                            pairs[parent_id].answer = post
-                        if (
-                            pairs[parent_id].num_answers_seen
-                            >= pairs[parent_id].question.num_answers  # type: ignore
-                        ):
-                            f.write(f"{parent_id} {pairs[parent_id].question.score} {id}\n")  # type: ignore
-                            del pairs[parent_id]
-                            continue
-
-                        pairs[parent_id].num_answers_seen += 1
-
-        keys_to_remove = []
-
-        # clean up the last posts
-        for id, post in pairs.items():
-            if post.num_answers_seen >= post.question.num_answers:  # type: ignore
-                f.write(f"{id} {post.question.score} {post.answer.id}\n")  # type: ignore
-                keys_to_remove.append(id)
-
-        for key in keys_to_remove:
-            del pairs[key]
-
-    print(f"{len(pairs)} unmatched pairs")
-    for pair in pairs.values():
-        print(pair)
-
-    plt.plot(y)
-    print(f"max len: {max(y)}")
-    print(f"total: {len(y)}")
-    print(
-        f"space reduction: {(len(y) - max(y)) / len(y) * 100:.{2}f}%",
+    create_dataset(
+        posts_path=POSTS_PATH, total=88706, top_num=30, dataset_path="dataset.json"
     )
-    plt.show()
+
+
+def create_dataset(posts_path, total, top_num, dataset_path):
+    top_pairs: list[Pair] = []
+
+    # extract top questions first
+    for post in read_posts(posts_path, total=total):
+        match post:
+            case Question(id, num_answers, score, title, body):
+                if len(top_pairs) < top_num:
+                    top_pairs.append(Pair(question=post, answer=None))
+                elif score >= top_pairs[0].question.score:  # type: ignore
+                    top_pairs.append(Pair(question=post, answer=None))
+                    top_pairs.sort(key=lambda p: p.question.score)  # type: ignore
+
+                    if len(top_pairs) > top_num:
+                        top_pairs = top_pairs[len(top_pairs) - top_num :]
+
+    pairs = {pair.question.id: pair for pair in top_pairs}  # type: ignore
+
+    # find highest voted answer for top questions
+    for post in read_posts(posts_path, total=total):
+        match post:
+            case Answer(id, parent_id, score, body):
+                if parent_id in pairs:
+                    if pairs[parent_id].answer == None:
+                        pairs[parent_id].answer = post
+                    elif score > pairs[parent_id].answer.score:
+                        pairs[parent_id].answer = post
+
+    # write question-answer pairs to dataset file
+    with open(dataset_path, "a") as f:
+        for pair in pairs.values():
+            f.write(
+                json.dumps(
+                    {
+                        "prompt": f"Title: {pair.question.title}\nBody:\n{pair.question.body}",
+                        "completion": f"Answer:\n{pair.answer.body}",
+                    }
+                )
+            )
 
 
 if __name__ == "__main__":
