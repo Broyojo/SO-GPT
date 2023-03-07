@@ -6,3 +6,4 @@ old
 create_dataset
 *.txt
 __pycache__
+wandb

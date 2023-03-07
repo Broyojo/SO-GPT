@@ -12,6 +12,7 @@ torch = "*"
 openai = "*"
 matplotlib = "*"
 accelerate = "*"
+wandb = "*"
 
 [dev-packages]
 black = "*"
